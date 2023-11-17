@@ -476,6 +476,19 @@ class RapydTest < Test::Unit::TestCase
     end
   end
 
+  def test_add_extra_fields_for_fx_transactions
+    @options[:requested_currency] = 'EUR'
+    @options[:fixed_side] = 'buy'
+
+    stub_comms(@gateway, :ssl_request) do
+      @gateway.purchase(@amount, @credit_card, @options)
+    end.check_request(skip_response: true) do |_method, _endpoint, data, _headers|
+      request = JSON.parse(data)
+      assert_equal 'EUR', request['requested_currency']
+      assert_equal 'buy', request['fixed_side']
+    end
+  end
+
   private
 
   def pre_scrubbed

@@ -413,4 +413,13 @@ class RemoteRapydTest < Test::Unit::TestCase
     assert_success response
     assert_equal 'SUCCESS', response.message
   end
+
+  def test_successful_purchase_with_fx_fields
+    @options[:requested_currency] = 'USD'
+    @options[:fixed_side] = 'buy'
+
+    response = @gateway.purchase(@amount, @credit_card, @options)
+    assert_success response
+    assert_equal 'SUCCESS', response.message
+  end
 end
