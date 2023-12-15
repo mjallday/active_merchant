@@ -7,6 +7,12 @@ module ActiveMerchant #:nodoc:
         'master' => 'mastercard'
       }
 
+      DEVICE_CHANEL = {
+        app: 1,
+        browser:  2,
+        three_ds_requestor_initiaded:  3,
+      }
+
       self.test_url = 'https://stage-secure-gateway.hipay-tpp.com/rest'
       self.live_url = 'https://secure-gateway.hipay-tpp.com/rest'
 
@@ -46,6 +52,7 @@ module ActiveMerchant #:nodoc:
           add_address(post, options)
           add_product_data(post, options)
           add_invoice(post, money, options)
+          add_3ds(post, options)
           r.process { commit('order', post) }
         end
       end
@@ -127,6 +134,66 @@ module ActiveMerchant #:nodoc:
         commit('store', post, options)
       end
 
+
+      def add_3ds(post, options)
+      return unless options.has_key?(:execute_threed)
+
+      # {:order_id=>"SbFtk3AvOtScu0HPLKei7OtuMQG",
+      #   :ip=>"127.0.0.1",
+      #   :currency=>"USD",
+      #   :three_ds_2=>
+      #    {:channel=>"browser",
+      #     :browser_info=>
+      #      {:width=>390,
+      #       :height=>400,
+      #       :depth=>24,
+      #       :timezone=>300,
+      #       :user_agent=>"Spreedly Agent",
+      #       :java=>false,
+      #       :javascript=>true,
+      #       :language=>"en-US",
+      #       :browser_size=>"05",
+      #       :accept_header=>"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
+      #     :notification_url=>"http://core.spreedly.invalid/transaction/SbFtk3AvOtScu0HPLKei7OtuMQG/three_ds_automated_complete",
+      #     :bin=>"487497"},
+      #   :full_name=>"Malka McClure",
+      #   :three_ds_version=>"2",
+      #   :execute_threed=>true,
+      #   :accept_url=>"http://example.com/fin",
+      #   :decline_url=>"http://example.com/fin",
+      #   :pending_url=>"http://example.com/fin",
+      #   :exception_url=>"http://example.com/fin",
+      #   :cancel_url=>"http://example.com/fin",
+      #   :notify_url=>"http://example.com/callback",
+      #   :operation=>"Sale"}
+      
+      browser_info_hash = {
+          "java_enabled": options[:three_ds_2][:browser_info][:java],
+          "javascript_enabled": options[:three_ds_2][:browser_info][:javascript],
+          "ipaddr":  options[:ip],
+          "http_accept": "*\\/*",
+          "http_user_agent": options[:three_ds_2][:browser_info][:user_agent],
+          "language": options[:three_ds_2][:browser_info][:language],
+          "color_depth": options[:three_ds_2][:browser_info][:depth],
+          "screen_height":   options[:three_ds_2][:browser_info][:height],
+          "screen_width": options[:three_ds_2][:browser_info][:width],
+          "timezone": options[:three_ds_2][:browser_info][:timezone]
+        }
+        browser_info_hash["device_fingerprint"] = options[:device_fingerprint] if options[:device_fingerprint] 
+
+        post[:browser_info] = browser_info_hash.to_json
+        post.to_json
+# urlsº
+      post[:accept_url] = options[:accept_url] || options[:redirect_url]
+      post[:decline_url] = options[:decline_url] || options[:redirect_url]
+      post[:pending_url] = options[:pending_url] || options[:redirect_url]
+      post[:exception_url] = options[:exception_url] || options[:redirect_url]
+      post[:cancel_url] = options[:cancel_url] || options[:redirect_url]
+      post[:notify_url] = options[:three_ds_2][:browser_info][:notification_url]
+# auth daa
+      post[:authentication_indicator] = 0
+      end
+
       def parse(body)
         return {} if body.blank?
 
@@ -159,7 +226,7 @@ module ActiveMerchant #:nodoc:
       def success_from(action, response)
         case action
         when 'order'
-          response['state'] == 'completed'
+          response['state'] == 'completed' || (response["state"] == "forwarding" && response['status'] == "140")
         when 'capture'
           response['status'] == '118' && response['message'] == 'Captured'
         when 'refund'

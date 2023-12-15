@@ -9,6 +9,7 @@ class RemoteHiPayTest < Test::Unit::TestCase
     @credit_card = credit_card('4111111111111111', verification_value: '514', first_name: 'John', last_name: 'Smith', month: 12, year: 2025)
     @bad_credit_card = credit_card('5144144373781246')
     @master_credit_card = credit_card('5399999999999999')
+    @challenge_credit_card = credit_card('4242424242424242')
 
     @options = {
       order_id: "Sp_ORDER_#{SecureRandom.random_number(1000000000)}",
@@ -17,6 +18,26 @@ class RemoteHiPayTest < Test::Unit::TestCase
     }
 
     @billing_address = address
+
+    @execute_threed = {
+      execute_threed: true,
+      redirect_url: 'http://www.example.com/redirect',
+      callback_url: 'http://www.example.com/callback',
+      three_ds_2: {
+        browser_info:  {
+          "width": 390,
+          "height": 400,
+          "depth": 24,
+          "timezone": 300,
+          "user_agent": 'Spreedly Agent',
+          "java": false,
+          "javascript": true,
+          "language": 'en-US',
+          "browser_size": '05',
+          "accept_header": 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        }
+      }
+    }
   end
 
   def test_successful_authorize
@@ -30,6 +51,16 @@ class RemoteHiPayTest < Test::Unit::TestCase
     response = @gateway.purchase(@amount, @credit_card, @options)
     assert_success response
     assert_include 'Captured', response.message
+
+    assert_kind_of MultiResponse, response
+    assert_equal 2, response.responses.size
+  end
+
+  def test_successful_purchase_with_3ds
+    response = @gateway.purchase(@amount, @challenge_credit_card, @options.merge(@billing_address).merge(@execute_threed))
+    assert_success response
+    assert_include 'Authentication requested', response.message
+    assert_match %r{stage-secure-gateway.hipay-tpp.com\/gateway\/forward\/[\w]+}, response.params['forwardUrl']
 
     assert_kind_of MultiResponse, response
     assert_equal 2, response.responses.size
