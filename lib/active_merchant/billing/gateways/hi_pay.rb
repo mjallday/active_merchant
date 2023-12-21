@@ -60,8 +60,7 @@ module ActiveMerchant #:nodoc:
 
       def unstore(authorization, options = {})
         _transaction_ref, card_token, _payment_product = authorization.split('|')
-        post = {card_token: card_token}
-        commit('unstore', post, options, :delete)
+        commit('unstore', { card_token: card_token }, options, :delete)
       end
 
       def refund(money, authorization, options)
@@ -202,7 +201,7 @@ module ActiveMerchant #:nodoc:
         when 'store'
           "#{token_url}/create"
         when 'unstore'
-          "#{token_url}"
+          token_url
         when 'capture', 'refund', 'cancel'
           endpoint = "maintenance/transaction/#{options[:transaction_reference]}"
           base_url(endpoint)
@@ -236,7 +235,7 @@ module ActiveMerchant #:nodoc:
         case response.code.to_i
         # to get the response code after unstore(delete instrument), because the body is nil
         when 200...300
-          response.body || {code: response.code}.to_json
+          response.body || { code: response.code }.to_json
         else
           raise ResponseError.new(response)
         end

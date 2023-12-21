@@ -127,13 +127,14 @@ class RemoteHiPayTest < Test::Unit::TestCase
       @amount,
       store_response.authorization,
       @options.merge(
-      {
-        order_id: "Sp_UNSTORE_#{SecureRandom.random_number(1000000000)}" 
-      }))
+        {
+          order_id: "Sp_UNSTORE_#{SecureRandom.random_number(1000000000)}"
+        }
+      )
+    )
     assert_failure response
-    assert_equal "Unknown Token", response.message
+    assert_equal 'Unknown Token', response.message
     assert_equal '3040001', response.error_code
-
   end
 
   def test_successful_refund
